@@ -58,6 +58,7 @@ class AgentLoop:
 
     @classmethod
     def from_config(cls, cfg: Config, client: ModelClient, trace: TraceLog | None = None) -> "AgentLoop":
+        from .context import build_assembler
         from .permissions import ApprovalGate, AuditLog
         from .tools import Workspace, default_registry
 
@@ -65,6 +66,7 @@ class AgentLoop:
         registry = default_registry(workspace)
         gate = ApprovalGate(cfg.permissions.mode, state_path=cfg.state_path)
         audit = AuditLog(cfg.state_path)
+        assembler = build_assembler(cfg, trace)
         return cls(
             client,
             registry,
@@ -72,6 +74,7 @@ class AgentLoop:
             trace=trace,
             approver=gate,
             audit=audit.record,
+            context_provider=assembler.build,
         )
 
     def run(

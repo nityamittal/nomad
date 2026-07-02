@@ -27,6 +27,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--model", default=None, help="override model name")
     parser.add_argument("--auto", action="store_true", help="auto-approve gated tools (benchmarks/CI)")
     parser.add_argument("--no-tools", action="store_true", help="plain chat, no tool use")
+    parser.add_argument(
+        "--index", action="store_true", help="build/refresh the semantic file index and exit"
+    )
     return parser
 
 
@@ -42,6 +45,10 @@ def main(argv: list[str] | None = None) -> int:
     cfg.ensure_state_dirs()
     setup_logging(cfg.state_path)
     trace = TraceLog(cfg.state_path)
+
+    if args.index:
+        return _build_index(cfg)
+
     client = create_client(cfg, trace)
 
     session = Session.latest(cfg.state_path) if args.resume else None
@@ -91,6 +98,26 @@ def _build_runner(cfg, client, trace, no_tools: bool):
         print()
 
     return agent_turn
+
+
+def _build_index(cfg) -> int:
+    from .context import FileIndex, OllamaEmbeddings, SemanticIndex, VectorStore
+
+    db_path = cfg.state_path / "index" / "vectors.db"
+    store = VectorStore(db_path)
+    embedder = OllamaEmbeddings(cfg.context.embedding_model, cfg.model.base_url)
+    index = FileIndex(cfg.project_root)
+    try:
+        chunks = SemanticIndex(store, embedder).build(index)
+    except OSError as exc:
+        print(
+            f"Could not reach the embedding model ({exc}). "
+            f"Is Ollama running with '{cfg.context.embedding_model}' pulled?",
+            file=sys.stderr,
+        )
+        return 1
+    print(f"Indexed {chunks} chunks from {len(index.files())} files into {db_path}")
+    return 0
 
 
 def _print_token(token: str) -> None:
