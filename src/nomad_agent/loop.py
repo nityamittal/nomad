@@ -71,6 +71,13 @@ class AgentLoop:
         memory = ProjectMemory(cfg.project_root)
         registry.register(RememberTool(memory))
 
+        from .orchestrator import DelegateTool, Orchestrator, SubAgentFactory
+
+        factory = SubAgentFactory(
+            cfg, client, registry, trace=trace, approver=gate, audit=audit.record
+        )
+        registry.register(DelegateTool(Orchestrator(factory)))
+
         def provide_context(query: str, messages: list[dict]) -> str | None:
             parts = []
             block = memory.context_block()
