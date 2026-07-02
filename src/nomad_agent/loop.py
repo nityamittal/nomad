@@ -59,6 +59,7 @@ class AgentLoop:
     @classmethod
     def from_config(cls, cfg: Config, client: ModelClient, trace: TraceLog | None = None) -> "AgentLoop":
         from .context import build_assembler
+        from .memory import MEMORY_MARKER, ProjectMemory, RememberTool
         from .permissions import ApprovalGate, AuditLog
         from .tools import Workspace, default_registry
 
@@ -67,6 +68,24 @@ class AgentLoop:
         gate = ApprovalGate(cfg.permissions.mode, state_path=cfg.state_path)
         audit = AuditLog(cfg.state_path)
         assembler = build_assembler(cfg, trace)
+        memory = ProjectMemory(cfg.project_root)
+        registry.register(RememberTool(memory))
+
+        def provide_context(query: str, messages: list[dict]) -> str | None:
+            parts = []
+            block = memory.context_block()
+            already_injected = any(
+                MEMORY_MARKER in m.get("content", "")
+                for m in messages
+                if m.get("role") == "system"
+            )
+            if block and not already_injected:
+                parts.append(block)
+            retrieved = assembler.build(query, messages)
+            if retrieved:
+                parts.append(retrieved)
+            return "\n\n".join(parts) or None
+
         return cls(
             client,
             registry,
@@ -74,7 +93,7 @@ class AgentLoop:
             trace=trace,
             approver=gate,
             audit=audit.record,
-            context_provider=assembler.build,
+            context_provider=provide_context,
         )
 
     def run(
