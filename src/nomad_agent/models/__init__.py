@@ -23,11 +23,17 @@ __all__ = [
 def create_client(config: Config, trace: TraceLog | None = None) -> ModelClient:
     provider = config.model.provider
     if provider == "ollama":
-        return OllamaClient(config.model, trace)
-    if provider == "openai-compat":
+        client: ModelClient = OllamaClient(config.model, trace)
+    elif provider == "openai-compat":
         from .openai_compat import OpenAICompatClient
 
-        return OpenAICompatClient(config.model, trace)
-    if provider == "mock":
-        return MockClient()
-    raise ValueError(f"Unknown model provider: {provider!r}")
+        client = OpenAICompatClient(config.model, trace)
+    elif provider == "mock":
+        client = MockClient()
+    else:
+        raise ValueError(f"Unknown model provider: {provider!r}")
+    if config.model.cache_responses:
+        from ..compression import CachingClient
+
+        client = CachingClient(client, config.state_path / "cache" / "responses")
+    return client

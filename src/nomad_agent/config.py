@@ -21,6 +21,7 @@ class ModelConfig:
     temperature: float = 0.2
     request_timeout_s: int = 300
     max_retries: int = 3
+    cache_responses: bool = False
 
 
 @dataclass
@@ -34,6 +35,7 @@ class AgentConfig:
 class ContextConfig:
     retrieval_token_budget: int = 6000
     embedding_model: str = "nomic-embed-text"
+    history_token_budget: int = 8000
 
 
 @dataclass

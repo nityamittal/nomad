@@ -93,6 +93,11 @@ class AgentLoop:
                 parts.append(retrieved)
             return "\n\n".join(parts) or None
 
+        from .compression import HistoryCompressor
+
+        compressor = HistoryCompressor(
+            client, cfg.context.history_token_budget, trace=trace
+        )
         return cls(
             client,
             registry,
@@ -101,6 +106,7 @@ class AgentLoop:
             approver=gate,
             audit=audit.record,
             context_provider=provide_context,
+            compressor=compressor,
         )
 
     def run(

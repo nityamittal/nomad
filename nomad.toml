@@ -12,6 +12,8 @@ num_ctx = 16384
 temperature = 0.2
 request_timeout_s = 300
 max_retries = 3
+# Cache identical model requests on disk (.nomad/cache/responses).
+cache_responses = false
 
 [agent]
 # Hard cap on model<->tool round-trips per user request.
@@ -25,6 +27,9 @@ tool_output_token_cap = 2000
 # Share of the model context window reserved for retrieved files/docs.
 retrieval_token_budget = 6000
 embedding_model = "nomic-embed-text"
+# When conversation history exceeds this, old turns are summarized into a
+# compact block (the recent tail is kept verbatim).
+history_token_budget = 8000
 
 [permissions]
 # "prompt" asks before write/exec tools; "auto" approves everything
