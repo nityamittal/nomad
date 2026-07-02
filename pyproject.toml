@@ -21,7 +21,7 @@ nomad = "nomad_agent.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-nomad_agent = ["prompts/*.md"]
+nomad_agent = ["prompts/*.md", "evals/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

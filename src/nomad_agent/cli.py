@@ -33,6 +33,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--index", action="store_true", help="build/refresh the semantic file index and exit"
     )
+    parser.add_argument(
+        "--verify",
+        action="store_true",
+        help="gate completion on the project's tests/build passing",
+    )
+    parser.add_argument(
+        "--benchmark",
+        nargs="?",
+        const="builtin",
+        metavar="TASKS.json",
+        help="run the benchmark suite (builtin tasks by default) and exit",
+    )
     return parser
 
 
@@ -52,6 +64,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.index:
         return _build_index(cfg)
 
+    if args.benchmark:
+        return _run_benchmark(cfg, trace, args.benchmark)
+
     client = create_client(cfg, trace)
 
     session = Session.latest(cfg.state_path) if args.resume else None
@@ -60,7 +75,9 @@ def main(argv: list[str] | None = None) -> int:
     if not session.messages:
         session.append({"role": "system", "content": load_prompt("system")})
 
-    runner = _build_runner(cfg, client, trace, no_tools=args.no_tools, plan=args.plan)
+    runner = _build_runner(
+        cfg, client, trace, no_tools=args.no_tools, plan=args.plan, verify=args.verify
+    )
 
     if args.once:
         return _run_turn(runner, session, args.once)
@@ -80,7 +97,7 @@ def main(argv: list[str] | None = None) -> int:
         _run_turn(runner, session, user_input)
 
 
-def _build_runner(cfg, client, trace, no_tools: bool, plan: bool = False):
+def _build_runner(cfg, client, trace, no_tools: bool, plan: bool = False, verify: bool = False):
     """Return a callable(session, text) -> None that runs one turn."""
     if no_tools:
 
@@ -95,6 +112,14 @@ def _build_runner(cfg, client, trace, no_tools: bool, plan: bool = False):
     from .loop import AgentLoop
 
     agent = AgentLoop.from_config(cfg, client, trace)
+
+    if verify:
+        from .evals import VerifiedLoop, Verifier
+        from .sandbox import CommandSandbox
+        from .tools import Workspace
+
+        verifier = Verifier(CommandSandbox(Workspace(cfg.project_root)))
+        agent = VerifiedLoop(agent, verifier)
 
     if plan:
         from .planner import PlanExecutor
@@ -137,6 +162,24 @@ def _build_index(cfg) -> int:
         return 1
     print(f"Indexed {chunks} chunks from {len(index.files())} files into {db_path}")
     return 0
+
+
+def _run_benchmark(cfg, trace, suite: str) -> int:
+    from pathlib import Path
+
+    from .evals import BenchmarkTask, run_benchmark
+
+    tasks_path = (
+        Path(__file__).parent / "evals" / "tasks.json" if suite == "builtin" else Path(suite)
+    )
+    tasks = BenchmarkTask.load_suite(tasks_path)
+    report = run_benchmark(
+        tasks,
+        client_factory=lambda: create_client(cfg, trace),
+        model_label=f"{cfg.model.provider}:{cfg.model.name}",
+    )
+    print(report.render())
+    return 0 if report.passed == report.total else 1
 
 
 def _print_token(token: str) -> None:

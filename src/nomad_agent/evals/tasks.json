@@ -1,0 +1,28 @@
+[
+  {
+    "name": "add-docstring",
+    "prompt": "Read main.py and add a one-line docstring to the main() function. Keep everything else unchanged.",
+    "files": {
+      "main.py": "def main():\n    print('hello')\n\n\nif __name__ == '__main__':\n    main()\n"
+    },
+    "check": { "type": "file_contains", "path": "main.py", "text": "\"\"\"" }
+  },
+  {
+    "name": "create-utility",
+    "prompt": "Create a file slug.py containing a function slugify(text) that lowercases text and replaces spaces with hyphens.",
+    "files": {},
+    "check": {
+      "type": "command_succeeds",
+      "command": "python3 -c \"from slug import slugify; assert slugify('Hello World') == 'hello-world'\""
+    }
+  },
+  {
+    "name": "fix-failing-test",
+    "prompt": "The test in test_math.py fails. Fix the bug in mathlib.py (not the test) so it passes.",
+    "files": {
+      "mathlib.py": "def add(a, b):\n    return a - b\n",
+      "test_math.py": "from mathlib import add\n\n\ndef test_add():\n    assert add(2, 3) == 5\n"
+    },
+    "check": { "type": "command_succeeds", "command": "python3 -m pytest -q test_math.py" }
+  }
+]
