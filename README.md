@@ -8,6 +8,11 @@ DuckDuckGo for search. No API keys, no hosted services.
 Built by following [`coding_agent_project_plan.md`](coding_agent_project_plan.md)
 phase by phase — each phase of that plan maps to a subsystem here.
 
+**New to all of this?** Start with the **[learning guide in `docs/`](docs/README.md)** —
+seven chapters that take you from "what is an LLM" to extending this agent,
+with a glossary and hands-on exercises. It assumes nothing beyond basic
+Python.
+
 ## Quick start
 
 ```bash
