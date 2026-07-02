@@ -1,4 +1,10 @@
-from .benchmark import BenchmarkReport, BenchmarkTask, TaskResult, run_benchmark
+from .benchmark import (
+    BenchmarkReport,
+    BenchmarkTask,
+    TaskResult,
+    render_comparison,
+    run_benchmark,
+)
 from .verifier import Verification, VerifiedLoop, Verifier, detect_verify_command
 
 __all__ = [
@@ -10,4 +16,5 @@ __all__ = [
     "BenchmarkReport",
     "TaskResult",
     "run_benchmark",
+    "render_comparison",
 ]

@@ -67,6 +67,27 @@ class BenchmarkReport:
         return "\n".join(lines)
 
 
+def render_comparison(reports: list["BenchmarkReport"]) -> str:
+    """Side-by-side pass/fail table across models (Phase 10)."""
+    if not reports:
+        return "(no reports)"
+    names = [r.name for r in reports[0].results]
+    width = max((len(n) for n in names), default=4) + 2
+    header = "task".ljust(width) + " | " + " | ".join(r.model for r in reports)
+    lines = [header, "-" * len(header)]
+    for i, name in enumerate(names):
+        cells = []
+        for report in reports:
+            result = report.results[i] if i < len(report.results) else None
+            cells.append(("PASS" if result and result.passed else "FAIL").ljust(len(report.model)))
+        lines.append(name.ljust(width) + " | " + " | ".join(cells))
+    totals = " | ".join(
+        f"{r.passed}/{r.total}".ljust(len(r.model)) for r in reports
+    )
+    lines.append("total".ljust(width) + " | " + totals)
+    return "\n".join(lines)
+
+
 def _run_check(check: dict, root: Path) -> tuple[bool, str]:
     kind = check.get("type")
     if kind == "file_contains":

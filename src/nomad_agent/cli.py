@@ -45,6 +45,12 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="TASKS.json",
         help="run the benchmark suite (builtin tasks by default) and exit",
     )
+    parser.add_argument(
+        "--compare-models",
+        metavar="SPECS",
+        help="run the benchmark across models and compare, "
+        "e.g. 'ollama:qwen2.5-coder,ollama:deepseek-coder'",
+    )
     return parser
 
 
@@ -63,6 +69,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.index:
         return _build_index(cfg)
+
+    if args.compare_models:
+        return _compare_models(cfg, trace, args.compare_models, args.benchmark or "builtin")
 
     if args.benchmark:
         return _run_benchmark(cfg, trace, args.benchmark)
@@ -164,22 +173,54 @@ def _build_index(cfg) -> int:
     return 0
 
 
-def _run_benchmark(cfg, trace, suite: str) -> int:
+def _load_tasks(suite: str):
     from pathlib import Path
 
-    from .evals import BenchmarkTask, run_benchmark
+    from .evals import BenchmarkTask
 
     tasks_path = (
         Path(__file__).parent / "evals" / "tasks.json" if suite == "builtin" else Path(suite)
     )
-    tasks = BenchmarkTask.load_suite(tasks_path)
+    return BenchmarkTask.load_suite(tasks_path)
+
+
+def _run_benchmark(cfg, trace, suite: str) -> int:
+    from .evals import run_benchmark
+
     report = run_benchmark(
-        tasks,
+        _load_tasks(suite),
         client_factory=lambda: create_client(cfg, trace),
         model_label=f"{cfg.model.provider}:{cfg.model.name}",
     )
     print(report.render())
     return 0 if report.passed == report.total else 1
+
+
+def _compare_models(cfg, trace, specs: str, suite: str) -> int:
+    """Swapping models is one config value; comparing them is one flag."""
+    import copy
+
+    from .evals import render_comparison, run_benchmark
+
+    tasks = _load_tasks(suite)
+    reports = []
+    for spec in [s.strip() for s in specs.split(",") if s.strip()]:
+        provider, _, name = spec.partition(":")
+        model_cfg = copy.deepcopy(cfg)
+        model_cfg.model.provider = provider
+        if name:
+            model_cfg.model.name = name
+        print(f"running benchmark on {spec} ...")
+        reports.append(
+            run_benchmark(
+                tasks,
+                client_factory=lambda c=model_cfg: create_client(c, trace),
+                model_label=spec,
+            )
+        )
+    print()
+    print(render_comparison(reports))
+    return 0
 
 
 def _print_token(token: str) -> None:
