@@ -1,0 +1,37 @@
+# Nomad agent configuration. Every value here has a code default; this file
+# exists so nothing is hardcoded (plan Phase 0).
+
+[model]
+# Which registered adapter to use: "ollama", "openai-compat", or "mock".
+provider = "ollama"
+name = "qwen2.5-coder"
+base_url = "http://localhost:11434"
+# Explicit context window in tokens. Ollama's own default is tiny (2k-4k);
+# we always send this so truncation is deliberate, never silent.
+num_ctx = 16384
+temperature = 0.2
+request_timeout_s = 300
+max_retries = 3
+
+[agent]
+# Hard cap on model<->tool round-trips per user request.
+max_iterations = 25
+# Identical (tool, args) calls this many times in a row aborts the loop.
+loop_detection_threshold = 3
+# Tool output larger than this (in tokens, estimated) gets truncated.
+tool_output_token_cap = 2000
+
+[context]
+# Share of the model context window reserved for retrieved files/docs.
+retrieval_token_budget = 6000
+embedding_model = "nomic-embed-text"
+
+[permissions]
+# "prompt" asks before write/exec tools; "auto" approves everything
+# (for benchmarks/CI only); "deny" refuses all gated tools.
+mode = "prompt"
+
+[paths]
+# All agent state (logs, sessions, cache, memory, audit) lives under this
+# directory inside the project being worked on.
+state_dir = ".nomad"
