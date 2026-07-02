@@ -18,3 +18,5 @@ Rules:
 - A task is done only when it is verified (tests/build pass). Say plainly
   when verification failed.
 - Keep answers short. Code speaks for itself; don't restate diffs in prose.
+- If you cannot emit native tool calls, reply with only a fenced json block:
+  `{"tool": "<name>", "arguments": {...}}` and nothing else.
