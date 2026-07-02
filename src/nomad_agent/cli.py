@@ -28,6 +28,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--auto", action="store_true", help="auto-approve gated tools (benchmarks/CI)")
     parser.add_argument("--no-tools", action="store_true", help="plain chat, no tool use")
     parser.add_argument(
+        "--plan", action="store_true", help="decompose each request into steps before executing"
+    )
+    parser.add_argument(
         "--index", action="store_true", help="build/refresh the semantic file index and exit"
     )
     return parser
@@ -57,7 +60,7 @@ def main(argv: list[str] | None = None) -> int:
     if not session.messages:
         session.append({"role": "system", "content": load_prompt("system")})
 
-    runner = _build_runner(cfg, client, trace, no_tools=args.no_tools)
+    runner = _build_runner(cfg, client, trace, no_tools=args.no_tools, plan=args.plan)
 
     if args.once:
         return _run_turn(runner, session, args.once)
@@ -77,7 +80,7 @@ def main(argv: list[str] | None = None) -> int:
         _run_turn(runner, session, user_input)
 
 
-def _build_runner(cfg, client, trace, no_tools: bool):
+def _build_runner(cfg, client, trace, no_tools: bool, plan: bool = False):
     """Return a callable(session, text) -> None that runs one turn."""
     if no_tools:
 
@@ -92,6 +95,22 @@ def _build_runner(cfg, client, trace, no_tools: bool):
     from .loop import AgentLoop
 
     agent = AgentLoop.from_config(cfg, client, trace)
+
+    if plan:
+        from .planner import PlanExecutor
+
+        executor = PlanExecutor(client, agent, trace)
+
+        def plan_turn(session: Session, text: str) -> None:
+            def show_step(step, number, total):
+                print(f"\n=== step {number}/{total}: {step.title} ===")
+
+            result = executor.execute(session, text, on_token=_print_token, on_step=show_step)
+            print()
+            if not result.completed:
+                print(f"[plan incomplete] {result.summary}")
+
+        return plan_turn
 
     def agent_turn(session: Session, text: str) -> None:
         agent.run(session, text, on_token=_print_token)
