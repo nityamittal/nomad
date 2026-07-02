@@ -1,8 +1,6 @@
-"""Shell tool: run a command inside the workspace with a hard timeout."""
+"""Shell tool: run a command inside the workspace via the command sandbox."""
 
 from __future__ import annotations
-
-import subprocess
 
 from .base import Tool, ToolResult
 from .workspace import Workspace
@@ -26,29 +24,24 @@ class RunCommandTool(Tool):
         "required": ["command"],
     }
 
-    def __init__(self, workspace: Workspace):
+    def __init__(self, workspace: Workspace, sandbox=None):
+        from ..sandbox import CommandSandbox
+
         self.workspace = workspace
+        self.sandbox = sandbox or CommandSandbox(workspace)
 
     def preview(self, args: dict) -> str:
         return f"run_command: $ {args.get('command', '')}"
 
     def execute(self, args: dict) -> ToolResult:
         timeout = min(int(args.get("timeout_s", 60)), MAX_TIMEOUT_S)
-        try:
-            proc = subprocess.run(
-                args["command"],
-                shell=True,
-                cwd=self.workspace.root,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-            )
-        except subprocess.TimeoutExpired:
+        result = self.sandbox.run(args["command"], timeout_s=timeout)
+        if result.timed_out:
             return ToolResult(f"Command timed out after {timeout}s", error=True)
         parts = []
-        if proc.stdout:
-            parts.append(proc.stdout.rstrip("\n"))
-        if proc.stderr:
-            parts.append(f"[stderr]\n{proc.stderr.rstrip(chr(10))}")
-        parts.append(f"[exit code: {proc.returncode}]")
-        return ToolResult("\n".join(parts), error=proc.returncode != 0)
+        if result.stdout:
+            parts.append(result.stdout.rstrip("\n"))
+        if result.stderr:
+            parts.append(f"[stderr]\n{result.stderr.rstrip(chr(10))}")
+        parts.append(f"[exit code: {result.returncode}]")
+        return ToolResult("\n".join(parts), error=result.returncode != 0)
